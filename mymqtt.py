@@ -23,7 +23,7 @@ class myMqtt():
 
     def __init__(self, client_id):
         self.client_id = client_id
-        self.client = mqtt_client.Client(client_id)
+        self.client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION2)
         # print(self.client)
         self.log = logging.getLogger(client_id)
         #self.log.basic(filename=f"{log_client_id}.txt", encoding='utf-8', level=logging.DEBUG)

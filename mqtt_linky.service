@@ -5,7 +5,7 @@ AssertPathExists=/sys/class/net/eth0
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /home/pi/TeleinfoLinky/mqtt_linky_read_publish.py
+ExecStart=/home/yunohost.app/teleinfo2mqtt/.python.venv/bin/python3 /home/yunohost.app/teleinfo2mqtt/mqtt_linky_read_publish.py
 Restart=always
 
 [Install]
