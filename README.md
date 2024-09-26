@@ -4,139 +4,73 @@
 NB: Ces items ne sont pas forcément disponibles ni n'ont les mêmes noms en mode 'historique' (à 1200 bauds)
 
 * Changer baudrate=9600 en baudrate=1200 pour fonctionner en mode 'historique'
-* Expérimenter `python teleinfo.py all` pour connaitre les items disponibles
 
-## teleinfo.py
-Utilisé pour tester la récupération des données en Python sur la Pi
+## Linky vers MQTT
 
-Si la liste des paramètres est 'all', tous les paramètres sous ajoutés dans la liste des items
-Chaque item listé en paramètre voit sa valeur copiée sous /home/pi/teleinfo/<item>
-
-## teleinfo_ram.py
-Utilisé pour la récupération des données en Python sur la Pi à partir de Jeedom
-
-Test en ligne de commande : python teleinfo_ram.py  IRMS1 IRMS2 IRMS3 URMS1 URMS2 URMS3 loop
-
-A partir de Jeedom : Requete SCRIPT : /var/www/html/plugins/script/core/ressources/teleinfo_ram.py "IRMS1 IRMS2 IRMS3 URMS1 URMS2 URMS3"
-
-## cat_file.php
-Utilisé pour lire les fichiers créées par teleinfo_ram.py par Jeedom
-
-A partir de Jeedom : 1 Requete SCRIPT par item : /var/www/html/plugins/script/core/ressources/cat_file.php "/var/tmp_ram/IRMS1"
-
-## Option 2: Linky vers MQTT
-
-3 étapes:
-
-### 1. Installation d'un broker mosquitto en local sur la Pi
-
-sudo apt-get install mosquitto
-
-> Le broker mosquitto est directement installé et lancé
-
-> vérif:
+### 1. Installer
 
 ```bash
-sudo systemctl list-unit-files --type=service | grep mosquitto
-sudo systemctl status mosquitto.service
+git clone git@github.com:europrimus/TeleinfoLinky2mqtt.git
+cd TeleinfoLinky2mqtt
+python3 -m venv .python.venv
+source .python.venv/bin/activate
+pip3 install -r requirements.txt
+deactivate
 ```
 
-modification du service mosquitto pour sauver les logs dans /tmp/mosquitto.log
+### 2. Configurer
 
-fichier /etc/mosquitto/mosquitto.conf:
-
-```bash
-# Place your local configuration in /etc/mosquitto/conf.d/
-#
-# A full description of the configuration file is at
-# /usr/share/doc/mosquitto/examples/mosquitto.conf.example
-
-pid_file /var/run/mosquitto.pid
-
-persistence true
-persistence_location /var/lib/mosquitto/
-
-log_dest file /tmp/mosquitto.log
-#log_type all
-include_dir /etc/mosquitto/conf.d
-```
-
-### 2. Lecture des infos de teleinformation
-
-```bash
-sudo pip3 install paho-mqtt
-sudo pip3 install pyserial
-```
-
-Dans mqtt_linky_read_publish.py:
-
+Modifier si nécessaire `mqtt_linky_read_publish.py`:
 ```python
-import serial
-baudrate=9600
-
-ser = serial.Serial('/dev/ttyAMA0', baudrate, bytesize=7, timeout=1)
-ser.isOpen()
-response = ser.readline()
-if response != "":
-    . . .
+client_id="linky2mqtt"
+linky_args = ["ADCO", "ISOUSC", "BASE", "IINST", "PAPP"]
+broker="127.0.0.1"
+port = 1883
+"""
+Mode de teleinformation dit 'standard':
+  permettant de monitorer les 3 phases
+  utilise un baudrate=9600
+NB: Le mode de teleinformation dit 'historique':
+  ne permet pas de monitorer le triphasé
+  fonctionne avec baudrate=1200
+"""
+baudrate=1200
+serialPort="/dev/ttyUSB1"
 ```
 
-### 3. Publication vers le broker
-
-Dans mqtt_linky_read_publish.py:
-
-```python
-from mymqtt import myMqtt
-from paho.mqtt import client as mqtt_client
-
-linky_args = ["URMS1", "IRMS1", "URMS2", "IRMS2", "URMS3", "IRMS3"]
-broker="PiCuisine"
-mqttc = myMqtt("linky2mqtt")
-. . .
-mqttc.publish(mqtt_item, value)
-```
-
-### 4. Lancement au demarrage du script
+### 3. Lancement au demarrage du script
 
 #### creation d'un service `mqtt_linky`
 
-fichier mqtt_linky.service:
-
-[mqtt_linky.service](mqtt_linky.service)
+Modifier si nécessaire le fichier `mqtt_linky.service`.  
+La ligne suivante doit correspondre au répertoire d'installation.
+```
+ExecStart=/home/yunohost.app/teleinfo2mqtt/.python.venv/bin/python3 /home/yunohost.app/teleinfo2mqtt/mqtt_linky_read_publish.py
+```
 
 #### Installation du service `mqtt_linky`
 
 ```bash
-sudo cp mqtt_linky.service /usr/local/lib/systemd/system/mqtt_linky.service
-sudo systemctl daemon-reload
-sudo systemctl enable mqtt_linky.service
-sudo systemctl start  mqtt_linky.service
-sudo systemctl status mqtt_linky.service
+cp mqtt_linky.service /etc/systemd/system/mqtt_linky.service
+systemctl daemon-reload
+systemctl enable mqtt_linky.service
+systemctl start  mqtt_linky.service
+systemctl status mqtt_linky.service
 ```
 
-Une fois lancé, les infos listées dans mqtt_linky_read_publish.py/linky_args sont publiées dans le broker dès réception.
+Une fois lancé, les infos listées dans `linky_args` du fichier `mqtt_linky_read_publish.py` sont publiées dans le broker dès réception.
 
 le service est démarré au démarrage du réseau (Ethernet) et relancé si jamais il s'arrête
 
 #### Redémarrage du service `mqtt_linky` après modifications
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl restart mqtt_linky.service
+systemctl daemon-reload
+systemctl restart mqtt_linky.service
 ```
 
 #### Suivi des messages postés
 
-On démarre un client sur tous les topics 'linky'
-
 ```bash
-/usr/bin/python3 /home/pi/TeleinfoLinky/mqtt_linky_listen.py
-```
-
-#### Surveillance des soucis du service `mqtt_linky`
-
-Afin d'essayer de comprendre pourquoi le service est parfois arrêté, on lance un client qui surveille le message de 'will'
-
-```bash
-/usr/bin/python3 /home/pi/TeleinfoLinky/mqtt_linky_undertaker.py
+mqttui --broker mqtt://127.0.0.1 --username $MQTTUI_USERNAME --password $MQTTUI_PASSWORD
 ```
