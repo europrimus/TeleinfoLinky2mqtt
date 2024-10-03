@@ -20,7 +20,7 @@ deactivate
 
 ### 2. Configurer
 
-Modifier si nécessaire `mqtt_linky_read_publish.py`:
+Modifier si nécessaire `teleinfo2mqtt.py`:
 ```python
 client_id="linky2mqtt"
 linky_args = ["ADCO", "ISOUSC", "BASE", "IINST", "PAPP"]
@@ -40,33 +40,37 @@ serialPort="/dev/ttyUSB1"
 
 ### 3. Lancement au demarrage du script
 
-#### creation d'un service `mqtt_linky`
+#### creation d'un service `teleinfo2mqtt`
 
-Modifier si nécessaire le fichier `mqtt_linky.service`.  
+Modifier si nécessaire le fichier `teleinfo2mqtt.service`.  
 La ligne suivante doit correspondre au répertoire d'installation.
 ```
-ExecStart=/home/yunohost.app/teleinfo2mqtt/.python.venv/bin/python3 /home/yunohost.app/teleinfo2mqtt/mqtt_linky_read_publish.py
+ExecStart=/home/yunohost.app/teleinfo2mqtt/.python.venv/bin/python3 /home/yunohost.app/teleinfo2mqtt/teleinfo2mqtt.py
 ```
 
-#### Installation du service `mqtt_linky`
+#### Installation du service `teleinfo2mqtt`
 
 ```bash
-cp mqtt_linky.service /etc/systemd/system/mqtt_linky.service
+cp teleinfo2mqtt.service /etc/systemd/system/teleinfo2mqtt.service
 systemctl daemon-reload
-systemctl enable mqtt_linky.service
-systemctl start  mqtt_linky.service
-systemctl status mqtt_linky.service
+systemctl enable teleinfo2mqtt.service
+systemctl start  teleinfo2mqtt.service
 ```
 
-Une fois lancé, les infos listées dans `linky_args` du fichier `mqtt_linky_read_publish.py` sont publiées dans le broker dès réception.
+Pour vérifier que le service fonctione:
+```bash
+systemctl status teleinfo2mqtt.service
+```
+
+Une fois lancé, les infos listées dans `linky_args` du fichier `teleinfo2mqtt.py` sont publiées dans le broker dès réception.
 
 le service est démarré au démarrage du réseau (Ethernet) et relancé si jamais il s'arrête
 
-#### Redémarrage du service `mqtt_linky` après modifications
+#### Redémarrage du service `teleinfo2mqtt` après modifications
 
 ```bash
 systemctl daemon-reload
-systemctl restart mqtt_linky.service
+systemctl restart teleinfo2mqtt.service
 ```
 
 #### Suivi des messages postés
